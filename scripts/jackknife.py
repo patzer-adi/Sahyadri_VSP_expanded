@@ -75,10 +75,82 @@ class JackKnife:
     
                 if ii == 0:
                     data = mat
+                    self.jnreg = jnreg
+                    self.njn = njn
+
                 else:
                     rand = mat
     
             return data, rand
         else:
             return 0
+        
+        
     
+    def jackknife_percentile_stats(self, values, percentiles=(2.5, 16.0, 50.0, 84.0, 97.5), jnreg=None):
+        """
+        Computes jackknife-resampled percentile statistics of a per-point quantity
+        (e.g. Voronoi cell volumes), following the same leave-one-region-out
+        procedure as compute_voronoi_jack.py.
+        
+        Parameters
+        ----------
+        values : array_like, shape (Ntrc, Vtrc)
+            Per-point quantity to compute percentiles of. Must be aligned
+            (same ordering) with the positions/jnreg used to create it.
+        percentiles : array_like, optional
+            Percentiles (0-100) to compute. Defaults to (2.5, 16.0, 50.0, 84.0, 97.5).
+        jnreg : array_like, shape (Ntrc,), optional
+            Jackknife region label for each point. If not provided, uses
+            self.jnreg, which is set automatically by add_jackknife_regions.
+        
+        Returns
+        -------
+        result : dict
+            'percentiles'  : array of the requested percentiles
+            'full'         : percentiles computed over the full sample
+            'mean'         : jackknife mean of the percentiles across regions
+            'err'          : jackknife error (sqrt(njn-1) * std) of the percentiles
+            'realizations' : array, shape (n_percentiles, njn), the leave-one-
+                             region-out percentile values for each region
+            'njn'          : number of jackknife regions used
+
+        """
+        values = np.asarray(values, dtype=float)
+        
+        if jnreg is None:
+            if not hasattr(self, 'jnreg'):
+                raise ValueError(
+                    "No jnreg available. Either pass jnreg explicitly or call "
+                    "add_jackknife_regions first."
+                )
+            jnreg = self.jnreg
+        
+        else:
+            jnreg = np.asarray(jnreg)
+            
+        if values.shape[0] != jnreg.shape[0]:
+            raise ValueError("values and jnreg must have the same length")
+        
+        percentiles = np.asarray(percentiles, dtype=float)
+        regions = np.unique(jnreg)
+        njn = regions.size
+
+        realizations = np.zeros((percentiles.size, njn), dtype=float)
+        for i, reg in enumerate(regions):
+            mask = jnreg != reg
+            realizations[:, i] = np.percentile(values[mask], percentiles)
+ 
+        full = np.percentile(values, percentiles)
+        mean = np.mean(realizations, axis=1)
+        err = np.sqrt(njn - 1) * np.std(realizations, axis=1)
+ 
+        return {
+            'percentiles': percentiles,
+            'mean': mean,
+            'err': err,
+            'full': full,
+            'realizations': realizations,
+            'njn': njn,
+        }
+        
