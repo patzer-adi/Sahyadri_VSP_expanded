@@ -1,0 +1,36 @@
+#!/bin/bash
+#PBS -N sahyadri_hod_derivatives
+#PBS -l select=1:ncpus=4:mpiprocs=1
+#PBS -l walltime=08:00:00
+#PBS -q regular
+#PBS -j oe
+#PBS -o logs/out_pipeline.txt
+#PBS -e logs/err_pipeline.txt
+
+set -euo pipefail
+
+ulimit -s 10240
+
+cd "$PBS_O_WORKDIR"
+
+# Ensure log/output dirs exist before the job writes to them
+mkdir -p logs outputs/catalogues outputs/wp outputs/derivatives outputs/figures
+
+PYTHON_EXE="/mnt/csoft/tools/anaconda3-py-3.10.9/bin/python3"
+
+echo "========================================="
+echo "Job ID      : $PBS_JOBID"
+echo "Job Name    : $PBS_JOBNAME"
+echo "Hostname    : $(hostname)"
+echo "Start Time  : $(date)"
+echo "Working Dir : $(pwd)"
+echo "========================================="
+
+# CLI args mirror the notebook defaults (SEED=10, MR_THRESH=-18, N_REALIZATIONS=15).
+# Override here if you need a different run without editing config in the script.
+"$PYTHON_EXE" run_pipeline.py \
+    --seed 10 \
+    --mr -18 \
+    --realizations 15
+
+echo "Finished at $(date)"
